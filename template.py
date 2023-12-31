@@ -13,7 +13,7 @@ def p2(f):
 
 example = io.StringIO("""
 
-""")
+""".strip())
 
 # For debugging purposes
 def main():

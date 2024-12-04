@@ -1,4 +1,6 @@
-# Advent of code 2023
+#! python3
+
+# Advent of code
 # Run Script
 # Adopted from https://github.com/oliver-ni/advent-of-code.git
 # Modified for my naming conventions and to accept example text from the script itself
@@ -15,6 +17,7 @@ import traceback
 from datetime import datetime, timedelta, timezone
 from importlib import import_module, reload
 from io import StringIO
+from termcolor import colored
 
 ans = {}
 
@@ -30,8 +33,9 @@ def run(func, input, example = False):
                 start = time.monotonic_ns()
                 result = func(f)
                 end = time.monotonic_ns()
-                print(result, end="\t")
-                print(f"[{(end-start) / 10**6:.3f} ms]")
+                # Format result to take up at least 15 characters, left-aligned
+                print(f"{str(result):<15}", end="")
+                print(f"[{(end-start) / 10**6:.3f} ms]", end="")
                 return result
             except:
                 traceback.print_exc()
@@ -45,7 +49,7 @@ def submit():
         print("No aocd module")
     else:
         for i in ("p1", "p2"):
-            if i in ans:
+            if i in ans and ans[i]:
                 submit(ans[i], part=i[-1], day=args.day, year=args.year)
 
 if __name__ == "__main__":
@@ -65,8 +69,8 @@ if __name__ == "__main__":
     if not os.path.exists(input_paths["input"]):
         try:
             from aocd import AocdError, get_data
-        except ImportError:
-            pass
+        except ImportError as e:
+            print(e)
         else:
             try:
                 data = get_data(day=args.day, year=args.year)
@@ -77,25 +81,69 @@ if __name__ == "__main__":
                     f.write(data)
 
     module_name = f"{args.year}.{args.day:02}"
-    if args.extra:
-        module_name += f"_{args.extra}"
 
     print(f"{module_name}")
 
     module = import_module(module_name)
 
+    # Try to get examples from aocd puzzle
+    try:
+        from aocd.models import Puzzle
+        puzzle = Puzzle(year=args.year, day=args.day)
+        aocd_examples = puzzle.examples
+    except Exception:
+        aocd_examples = []
+
     for i in ("p1", "p2"):
-        if not hasattr(module, i):
+        # Check for suffixed version first if extra is specified
+        func_name = i
+        if args.extra and hasattr(module, f"{i}_{args.extra}"):
+            func_name = f"{i}_{args.extra}"
+        elif not hasattr(module, i):
             continue
         print(f"--- {i} ---")
         print("sample:", end="\t")
-        if hasattr(module, 'example'):
-            run(getattr(module, i), module.example, example = True)
+
+        # Get example answer for this part
+        example_answer = None
+        # First check for manual answers in the module
+        if hasattr(module, f'answer_{i[-1]}') and getattr(module, f'answer_{i[-1]}'):
+            try:
+                example_answer = str(getattr(module, f'answer_{i[-1]}'))
+            except:
+                pass
+        # Fall back to aocd examples if no manual answer
+        elif aocd_examples:
+            example = aocd_examples[0]  # Take first example
+            if i == "p1":
+                example_answer = example.answer_a
+            else:
+                example_answer = example.answer_b
+
+        # Run example
+        if hasattr(module, 'example') and module.example:
+            if isinstance(module.example, str):
+                result = run(getattr(module, func_name), StringIO(module.example), example=True)
+            else:
+                result = run(getattr(module, func_name), module.example, example=True)
+        elif aocd_examples:
+            result = run(getattr(module, func_name), StringIO(aocd_examples[0].input_data), example=True)
         else:
-            run(getattr(module, i), f"input/{args.year}/day{args.day:02}_sample.txt")
+            result = run(getattr(module, func_name), f"input/{args.year}/day{args.day:02}_sample.txt")
+
+        # Check example answer if available
+        if example_answer is not None:
+            if str(result) == str(example_answer):
+                print("\t" + colored(f"✓ (Expected: {example_answer})", "green"))
+            else:
+                print("\t" + colored(f"✗ (Expected: {example_answer})", "red"))
+        else:
+            print()
+
         reload(module)
         print("input:", end="\t")
-        ans[i] = run(getattr(module, i), f"input/{args.year}/day{args.day:02}.txt")
+        ans[i] = run(getattr(module, func_name), f"input/{args.year}/day{args.day:02}.txt")
+        print()
 
     if args.submit:
         submit()

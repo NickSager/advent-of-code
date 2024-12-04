@@ -1,4 +1,4 @@
-# Advent of code 2023
+# Advent of code 2024
 # Day DD
 import io
 
@@ -14,6 +14,8 @@ def p2(f):
 example = io.StringIO("""
 
 """.strip())
+answer_1 = ""
+answer_2 = ""
 
 # For debugging purposes
 def main():

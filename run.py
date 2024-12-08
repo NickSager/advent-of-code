@@ -121,14 +121,27 @@ if __name__ == "__main__":
                 example_answer = example.answer_b
 
         # Run example
-        if hasattr(module, 'example') and module.example:
-            if isinstance(module.example, str):
+        has_valid_example = False
+        if hasattr(module, 'example'):
+            if isinstance(module.example, str) and module.example.strip():
+                # Non-empty string
                 result = run(getattr(module, func_name), StringIO(module.example), example=True)
-            else:
+                has_valid_example = True
+            elif isinstance(module.example, StringIO) and module.example.getvalue().strip():
+                # Non-empty StringIO
+                module.example.seek(0)  # Reset position to start
                 result = run(getattr(module, func_name), module.example, example=True)
-        elif aocd_examples:
+                has_valid_example = True
+            elif module.example and not isinstance(module.example, (str, StringIO)):
+                # Other non-empty object (like a custom input object)
+                result = run(getattr(module, func_name), module.example, example=True)
+                has_valid_example = True
+
+        # Fall back to aocd examples if no valid example
+        if not has_valid_example and aocd_examples:
             result = run(getattr(module, func_name), StringIO(aocd_examples[0].input_data), example=True)
-        else:
+        # Fall back to sample file if no other options
+        elif not has_valid_example:
             result = run(getattr(module, func_name), f"input/{args.year}/day{args.day:02}_sample.txt")
 
         # Check example answer if available
